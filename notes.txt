@@ -1,0 +1,27 @@
+Modules to Build:
+	Navigation Logic
+	Color(Destination) Recognition
+	Depth(Obstacle) Recognition
+	
+Navigation PseudoCode
+	Identify destination
+	Center on destination
+	If obstacle between self and destination, turn minimum amount to navigate around obstacle
+	Once past obstacle, reacquire destination
+	Center on destination
+	Loop
+	
+	
+Notes on arrays output from example.m
+
+    % D is depth matrix information
+    % 32001 is max distance
+    % smaller the number, the closer an object is
+    % infinitely small distance approaches around 150 (a little below it)
+    % matrix size is 240 x 320
+    
+    % I is image matrix information
+    % size is 480 * 640
+    % 0 is black
+    % not sure what white is
+    
