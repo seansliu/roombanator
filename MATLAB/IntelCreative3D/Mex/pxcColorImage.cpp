@@ -106,9 +106,10 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
 				i++;
 			}
 		}
-        PXCSizeU32 sz = {0, 0};
-        
-		projection->MapColorCoordinatesToDepth(npoints,posc,sz,posd);
+
+		PXCSizeU32 sz ={0,0};
+		//(PXCImage*, PXCPointF32*, pxcU32, PXCSizeU32)
+		projection->MapColorCoordinatesToDepth(rgbImage, posc, npoints, sz);
 
 		//projection->Release();
 	
