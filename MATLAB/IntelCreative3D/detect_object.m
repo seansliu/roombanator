@@ -1,4 +1,5 @@
-Enter file contents herefunction [params] = detect_object(arr)
+%Enter file contents here
+function [params] = detect_object(arr)
 params = struct([]);
 tolerance = 1000;
 [row, column] = size(arr);
@@ -10,7 +11,7 @@ sum_y = 0;
 for r = 1:row
     for c = 1:column
         if arr(r,c) <= tolerance
-            objaect_arr(r,c) = 1;
+            object_arr(r,c) = 1;
         end
     end
 end
