@@ -1,9 +1,5 @@
-function color_vision(serPort)
-    
-    % constants
-    v = 0.08;
-    thresh = 0.2;
-    target = [255 0 0];
+function [box, centroid_x, centroid_y, area] = color_vision(target)  
+    % target = rgb pixel
 
     CameraHandle  = pxcOpenCamera();
     if(CameraHandle == 0)
@@ -11,101 +7,29 @@ function color_vision(serPort)
     end 
 
     pxcAcquireFrame(CameraHandle);
-    D = pxcDepthImage(CameraHandle); 
-    I = pxcColorImage(CameraHandle); 
-    D = permute(D,[2 1]);
-    I = permute(I([3,2,1],:,:),[3 2 1]);
+    D = pxcDepthImage(CameraHandle);
+    I = pxcColorImage(CameraHandle);
+    D  = permute(D,[2 1]);
+    I  = permute(I([3,2,1],:,:),[3 2 1]);
     pxcReleaseFrame(CameraHandle);
+
+    subplot(1,2,1), h1=imshow(I); 
+    subplot(1,2,2), h2=imshow(D,[200 750]); 
+    colormap('jet');
+
     mask = pixel_mask(I, target);
     regions = regionprops(mask, 'Area', 'BoundingBox', 'Centroid');
-    [~, ~, ~, goal_area] = largest_region(regions, mask);
-
-    subplot(1,3,1), h1=imshow(I);
-    jmap=jet(256);
-    subplot(1,3,2), h2=imshow(ind2rgb(uint8(D/3-100), jmap));
-    
-    hs=[];
-    while(ishandle(h))
-        pause(1);
-
-        % Acquire a Camera Frame, and lock
-        pxcAcquireFrame(CameraHandle);
-
-        [D,~,UV] = pxcDepthImage(CameraHandle); 
-        XYZ = pxcDepthImage2World(CameraHandle,D);
-        I = pxcColorImage(CameraHandle);
-        
-        D  = permute(D,[2 1]);
-        UV = permute(UV,[3 2 1]);
-        I  = permute(I([3,2,1],:,:),[3 2 1]);
-        XYZ = permute(XYZ,[3 2 1]);
-
-        XYZ = XYZ*1000;
-        XYZ = WorldCoordinates2ColorImage(XYZ, UV,size(I));
-        X = XYZ(:,:,1); Y = XYZ(:,:,2); Z = XYZ(:,:,3);
-        Z(Z<200)=200; Z(Z>1000)=1000;
-        Z((X<-500)|(X>500)|(Y<-500)|(Y>500))=nan;
-        X(X<-500)=-500; X(X>500)= 500;
-        Y(Y<-500)=-500; Y(Y>500)= 500;
-        [ind,map] = rgb2ind(I,255);
-        subplot(1,3,3)
-        if (ishandle(hs)), 
-            set(hs, 'XData', X); 
-            set(hs, 'YData', Y); 
-            set(hs, 'ZData', 750-Z);
-            set(hs, 'CData', double(ind)/256);
-        else
-            hs=surf(X, Y, 1000-Z, double(ind)/256, 'EdgeColor', 'None'); 
-        end
-        colormap(map);
-        axis ij
-        axis equal
-        axis vis3d
-        view(-28,49)
-
-        pxcReleaseFrame(CameraHandle);
-
-        set(h1, 'CDATA', I);
-        set(h2, 'CDATA', ind2rgb(uint8(D/3-100), jmap));
-        drawnow; 
-
-        mask = pixel_mask(I, target);
-        regions = regionprops(mask, 'Area', 'BoundingBox', 'Centroid');
-        [box, centroid_x, centroid_y, area] = largest_region(regions, 400);
-        if (~box)
-            display('Target not found. Retrying...');
-            SetFwdVelAngVelRoomba(serPort, 0, 0);
-            continue;
-        end
-
-        % initialize movement variables
-        display('Target found.');
-        speed = 0;
-        turn = 0;
-        
-        % check target size
-        if (area < (1-thresh) * goal_area)
-            display('moving forward');
-            speed = v;
-        elseif (area > (1+thresh) * goal_area)
-            display('moving backward');
-            speed = -v;
-        end
-        
-        % check target position
-        if (centroid_x < (1-thresh) * center_x)
-            display('moving left');
-            turn = v;
-        elseif (centroid_x > (1+thresh) * center_x)
-            display('moving right');
-            turn = -v;
-        end
-
-        SetFwdVelAngVelRoomba(serPort, speed, turn);
+    [box, centroid_x, centroid_y, area] = largest_region(regions, 300);
+    if (~box)
+        display('Target not found. Retrying...');
+        continue;
     end
 
-    pxcCloseCamera(CameraHandle);
+    % initialize movement variables
+    display('Target found.');
 
+    pxcCloseCamera(CameraHandle);
+    
 end
 
 %% helper function for creating a binary mask, given an image and color
