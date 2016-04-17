@@ -8,7 +8,6 @@ f2=[PCSDK_dir 'sample/common/src/'];
 
 cmpflags='COMPFLAGS=/c /GR /W3 /EHs /D_CRT_SECURE_NO_DEPRECATE /D_SCL_SECURE_NO_DEPRECATE /D_SECURE_SCL=0 /DMATLAB_MEX_FILE /nologo /MD /fp:precise /Zc:wchar_t /Zc:forScope';
 
-cd('C:\Users\Wesley\Documents\MATLAB\IntelCreative3D');
 cd('Mex');
 files=dir('*.cpp');
 for i=1:length(files)

@@ -1,4 +1,3 @@
-addpath('Mex')
 
 % Open Device
 CameraHandle  = pxcOpenCamera();
