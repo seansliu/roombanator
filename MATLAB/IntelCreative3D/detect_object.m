@@ -1,5 +1,6 @@
-Enter file contents herefunction [params] = detect_object(arr)
+function [params] = detect_object(arr, background_arr)
 params = struct([]);
+epsilon = 25;
 tolerance = 1000;
 [row, column] = size(arr);
 object_arr = zeros(row, column);
@@ -9,8 +10,10 @@ sum_y = 0;
 %create binary array of all pixels closer than tolerance
 for r = 1:row
     for c = 1:column
-        if arr(r,c) <= tolerance
-            objaect_arr(r,c) = 1;
+        if background_arr(r,c) >= arr(r,c)- epsilon && background_arr(r,c) <= arr(r,c) + epsilon
+            object_arr(r,c) = 0;
+        elseif arr(r,c) <= tolerance
+            object_arr(r,c) = 1;
         end
     end
 end
