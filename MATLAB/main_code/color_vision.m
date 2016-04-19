@@ -21,7 +21,7 @@ function [box, centroid_x, centroid_y, area] = color_vision(target)
     regions = regionprops(mask, 'Area', 'BoundingBox', 'Centroid');
     [box, centroid_x, centroid_y, area] = largest_region(regions, 300);
     if (~box)
-        display('Target not found. Retrying...');
+        display('Target NOT found.');
     else 
         display('Target found.');
     end
