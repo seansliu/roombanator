@@ -19,7 +19,7 @@ function [box, centroid_x, centroid_y, area] = color_vision(target)
 
     mask = pixel_mask(I, target);
     regions = regionprops(mask, 'Area', 'BoundingBox', 'Centroid');
-    [box, centroid_x, centroid_y, area] = largest_region(regions, 300);
+    [box, centroid_x, centroid_y, area] = largest_region(regions, 300)
     if (~box)
         display('Target NOT found.');
     else 

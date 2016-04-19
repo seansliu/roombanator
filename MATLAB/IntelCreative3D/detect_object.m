@@ -24,6 +24,21 @@ CC = bwconncomp(object_arr);
 numPixels = cellfun(@numel, CC.PixelIdxList);
 [biggest, idx] = max(numPixels);
 blob(CC.PixelIdxList{idx}) = 1;
+
+%apply mean filter using a 10 by 10 window
+h = fspecial('average', [10,10]);
+blob = filter2(h, blob);
+
+%rounding values to make binary matrix
+for r = 1:row
+    for c = 1:column
+        if blob (r,c) >=0.5
+            blob(r,c) = 1;
+        else
+            blob(r,c) = 0;
+        end
+    end
+end
 figure
 imshow(blob)
 
