@@ -108,10 +108,12 @@ function turn_state=avoid_obstacle(serPort, CameraHandle)
     global cam_depth_img_width backgrnd cam_depth_range_ratio
     [D, I] = get_camera_image(CameraHandle);
     detect_params = detect_object(D, backgrnd);
-    near_left = detect_params.extrema.Extrema(8,1);
-    near_right = detect_params.extrema.Extrema(4,1);
+    
     median = detect_params.median;
     depth = D(median(1),median(2)) * cam_depth_range_ratio;
+    
+    near_left = detect_params.extrema.Extrema(8,1);
+    near_right = detect_params.extrema.Extrema(4,1);
     if near_left > cam_depth_img_width - near_right
         turn_state = 'left';
     else
@@ -142,7 +144,7 @@ function move_forward_by_distance(serPort, distance)
     travelled = 0;
     while travelled < distance
         SetFwdVelRadiusRoomba(serPort,0.05, inf);
-        travelled = travelled - DistanceSensorRoomba(serPort)
+        travelled = travelled - DistanceSensorRoomba(serPort);
         pause(0.1);
     end
 end
