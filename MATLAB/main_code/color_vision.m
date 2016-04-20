@@ -1,22 +1,5 @@
-function [box, centroid_x, centroid_y, area] = color_vision(target)  
+function [box, centroid_x, centroid_y, area] = color_vision(target, I)  
     % target = rgb pixel
-
-    CameraHandle  = pxcOpenCamera();
-    if(CameraHandle == 0)
-        error('no valid camera handle');
-    end 
-
-    pxcAcquireFrame(CameraHandle);
-    D = pxcDepthImage(CameraHandle);
-    I = pxcColorImage(CameraHandle);
-    D  = permute(D,[2 1]);
-    I  = permute(I([3,2,1],:,:),[3 2 1]);
-    pxcReleaseFrame(CameraHandle);
-
-    subplot(1,2,1), h1=imshow(I); 
-    subplot(1,2,2), h2=imshow(D,[200 750]); 
-    colormap('jet');
-
     mask = pixel_mask(I, target);
     regions = regionprops(mask, 'Area', 'BoundingBox', 'Centroid');
     [box, centroid_x, centroid_y, area] = largest_region(regions, 300);
@@ -25,9 +8,6 @@ function [box, centroid_x, centroid_y, area] = color_vision(target)
     else 
         display('Target found.');
     end
-
-    pxcCloseCamera(CameraHandle);
-    
 end
 
 %% helper function for creating a binary mask, given an image and color
