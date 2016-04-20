@@ -1,4 +1,5 @@
 function main(serPort)
+    display "Beginning run"
     global cam_fov robot_radius cam_depth_range_ratio cam_depth_img_width cam_depth_img_center backgrnd
     %init constants
     cam_fov = 74; %degrees
@@ -13,7 +14,18 @@ function main(serPort)
         error('no valid camera handle');
     end
     
-    input('Press any key and enter to start background detection');
+    % Initialize Color Tracking
+    pxcAcquireFrame(CameraHandle);
+    I = pxcColorImage(CameraHandle); I=permute(I([3,2,1],:,:),[3 2 1]);
+    pxcReleaseFrame(CameraHandle);
+    figure(1);
+    imshow(I);
+    [col, row] = getpts(1)
+    img_double = im2double(I);
+    rgb = impixel(img_double, col, row); 
+    
+    %Init Background Detection
+    %input('Press any key and enter to start background detection');
     h = figure;
     [backgrnd, I] = get_camera_image(CameraHandle);
     h2=imshow(backgrnd,[200 750]); colormap('jet');
@@ -22,7 +34,7 @@ function main(serPort)
     %display('Background Detection Complete');
     input('Press any key and enter to start navigation');
     
-    %center_on_destination(serPort);
+    %center_on_destination(serPort, CameraHandle, rgb);
     figure;
     while(1)
         [D, I] = get_camera_image(CameraHandle);
@@ -30,12 +42,11 @@ function main(serPort)
             %determine obstacle distance, width, calculate turn and
             %distance needed to travel
             display ('obstacle detected');
-            %turn_state = avoid_obstacle(serPort,CameraHandle);
-            %reacquire_destination(serPort, turn_state);
+            turn_state = avoid_obstacle(serPort,CameraHandle);
+            center_on_destination(serPort, CameraHandle, rgb);
         else
             display ('no obstacle');
-            %SetFwdVelRadiusRoomba(serPort, 0.05, inf);
-            %move_foward(serPort);
+            SetFwdVelRadiusRoomba(serPort, 0.05, inf);
         end
         pause(0.1);
     end
@@ -50,18 +61,22 @@ function [D, I] = get_camera_image(CameraHandle)
         pxcReleaseFrame(CameraHandle);
 end
 
-function center_on_destination(serPort)
+function center_on_destination(serPort, CameraHandle, rgb)
     centered = 0;
-    while centered == 0
-        destination_centroid = get_destination();
-        if destination_centroid.is_left()
+    while (~centered)
+        [D, I] = get_camera_image(CameraHandle);
+        [box, centroid_x, centroid_y, area] = color_vision(rgb, I);
+        display (centroid_x);
+        pause(0.05)
+        if centroid_x == 0
             turn_left(serPort);
-        end
-        if destination_centroid.is_right()
+        elseif centroid_x < 250
+            turn_left(serPort);
+        elseif centroid_x > 390
             turn_right(serPort);
-        end
-        if destination_centroid.is_center()
-            centered = 0;
+        else
+            SetFwdVelRadiusRoomba(serPort, 0, 0);
+            centered = 1;
         end
     end
 end
@@ -80,6 +95,7 @@ function obstacle_identified =identify_obstacle(Camera_Depth_Info)
             obstacle_identified = 1;
         end
     else
+        display ('nothing returned')
         obstacle_identified = 0;
     end
 end
@@ -89,11 +105,13 @@ function turn_state=avoid_obstacle(serPort, CameraHandle)
     %32000 units in depth matrix is roughly 60cm -- roughly 500 units / cm
     %angle we need to turn is roughly: 90 - arccos(x/d), where d is
     %distance to obstacle edge and x is width of robot
-    global cam_depth_img_width backgrnd
+    global cam_depth_img_width backgrnd cam_depth_range_ratio
     [D, I] = get_camera_image(CameraHandle);
     detect_params = detect_object(D, backgrnd);
     near_left = detect_params.extrema.Extrema(8,1);
     near_right = detect_params.extrema.Extrema(4,1);
+    median = detect_params.median;
+    depth = D(median(1),median(2)) * cam_depth_range_ratio;
     if near_left > cam_depth_img_width - near_right
         turn_state = 'left';
     else
@@ -107,7 +125,8 @@ function turn_state=avoid_obstacle(serPort, CameraHandle)
         end
         [D, I] = get_camera_image(CameraHandle);
     end
-    SetFwdVelRadiusRoomba(serPort, 0, 0);
+    move_forward_by_distance(serPort, .1); 
+    pause(1);
 end
 
 function turn_left(serPort)
@@ -118,6 +137,12 @@ function turn_right(serPort)
     SetFwdVelRadiusRoomba(serPort, 0.05, -0.01);
 end
 
-function move_forward(serPort)
-    SetFwdVelRadiusRoomba(serPort,0.05, inf);
+function move_forward_by_distance(serPort, distance)
+    DistanceSensorRoomba(serPort);
+    travelled = 0;
+    while travelled < distance
+        SetFwdVelRadiusRoomba(serPort,0.05, inf);
+        travelled = travelled - DistanceSensorRoomba(serPort)
+        pause(0.1);
+    end
 end

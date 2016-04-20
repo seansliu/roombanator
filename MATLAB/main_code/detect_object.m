@@ -21,7 +21,7 @@ end
 
 %find largest blob
 blob = zeros(row, column);
-CC = bwconncomp(object_arr)
+CC = bwconncomp(object_arr);
 if CC.NumObjects > 0
     numPixels = cellfun(@numel, CC.PixelIdxList);
     [biggest, idx] = max(numPixels);
@@ -64,15 +64,15 @@ for r = 1:row
     end
 end
 median = [uint8(sum_x/count), uint8(sum_y/count)];
-if any(blob) == 1
+if any(blob(:)) == 1
     centroid = regionprops(blob, 'Centroid');
     extrema = regionprops(blob, 'Extrema');
     %store parameters into param struct
     params(1).median = median;
     params(1).blob = blob;
-    params(1).centroid = centroid
+    params(1).centroid = centroid;
     %extrema: [top-left top-right right-top right-bottom 
     %bottom-right bottom-left left-bottom left-top]
-    params(1).extrema = extrema
+    params(1).extrema = extrema;
 end
 
