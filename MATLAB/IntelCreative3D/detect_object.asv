@@ -1,7 +1,6 @@
 function [params] = detect_object(arr, background_arr)
 params = struct([]);
 epsilon = 30;
-minimum_blob_size = 1000; %in pixels
 tolerance = 1000;
 [row, column] = size(arr);
 object_arr = zeros(row, column);
@@ -33,23 +32,14 @@ h = fspecial('average', [5,5]);
 blob = filter2(h, blob);
 
 %rounding values to make binary matrix
-count = 0;
 for r = 1:row
     for c = 1:column
-        if blob(r,c) == 1
-            count = count + 1;
-        elseif blob (r,c) >=0.5
+        if blob (r,c) >=0.5
             blob(r,c) = 1;
-            count = count + 1;
         else
             blob(r,c) = 0;
         end
     end
-end
-
-if count < minimum_blob_size
-    display('too small');
-    blob = zeros(row, column);
 end
 imshow(blob)
 
