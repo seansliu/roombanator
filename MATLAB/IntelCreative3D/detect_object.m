@@ -64,8 +64,6 @@ for r = 1:row
     end
 end
 median = [uint8(sum_x/count), uint8(sum_y/count)];
-sum_x
-sum_y
 if any(blob) == 1
     centroid = regionprops(blob, 'Centroid');
     extrema = regionprops(blob, 'Extrema');
