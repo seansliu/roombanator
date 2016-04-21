@@ -41,13 +41,33 @@ function main(serPort, mode)
             pause(1);
         end
     elseif mode == 1 % robot navigation mode
-        center_on_destination(serPort, CameraHandle, rgb);
+        center_on_destination(serPort, CameraHandle, rgb, 0);
         while(1)
             [D, I] = get_camera_image(CameraHandle);
+            pause(0.05);
             if identify_obstacle(D)
-                turn_state = avoid_obstacle(serPort,CameraHandle);
-                center_on_destination(serPort, CameraHandle, rgb);
+                SetFwdVelRadiusRoomba(serPort, 0, 0);
+                AngleSensorRoomba(serPort);
+                display 'Obstacle Identified'
+                turn_state = avoid_obstacle(serPort, D);
+                theta = 0;
+                while identify_obstacle(D)
+                    [D, I] = get_camera_image(CameraHandle);
+                    if strcmp(turn_state,'left')
+                        turn_left(serPort)
+                    else
+                        turn_right(serPort)
+                    end
+                    theta = theta + AngleSensorRoomba(serPort);
+                    pause(0.1);
+                end
+                degree = normalize_radians(theta)
+                move_forward_by_distance(serPort, .05, CameraHandle); 
+                SetFwdVelRadiusRoomba(serPort, 0, 0);
+                pause(1);
+                center_on_destination(serPort, CameraHandle, rgb, degree);
             else
+                display 'Moving towards destination'
                 SetFwdVelRadiusRoomba(serPort, 0.05, inf);
             end
             pause(0.1);
@@ -59,23 +79,34 @@ end
 %%%Destination Tracking Code%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function center_on_destination(serPort, CameraHandle, rgb)
+function center_on_destination(serPort, CameraHandle, rgb, degree)
     centered = 0;
+    turning = 0;
     while (~centered)
         [D, I] = get_camera_image(CameraHandle);
         [box, centroid_x, centroid_y, area] = color_vision(rgb, I);
-        display (centroid_x);
-        pause(0.05)
-        if centroid_x == 0
-            turn_left(serPort);
+        pause(0.05);
+        if centroid_x == 0 
+            if turning == 1
+                continue;
+            elseif degree > 0
+                display('Centroid lost. Turning right');
+                turn_right(serPort)
+            else
+                display('Centroid lost, Turning Left');
+                turn_left(serPort);
+            end
         elseif centroid_x < 250
+            display('Centroid found, turning left');
             turn_left(serPort);
         elseif centroid_x > 390
+            display('Centroid found, turning right');
             turn_right(serPort);
         else
             SetFwdVelRadiusRoomba(serPort, 0, 0);
             centered = 1;
         end
+        turning = 1;
     end
 end
 
@@ -97,9 +128,8 @@ function obstacle_identified =identify_obstacle(Camera_Depth_Info)
     end
 end
 
-function turn_state=avoid_obstacle(serPort, CameraHandle)
-    global cam_depth_img_width backgrnd cam_depth_range_ratio cam_fov
-    [D, I] = get_camera_image(CameraHandle);
+function turn_state=avoid_obstacle(serPort, D)
+    global backgrnd cam_depth_range_ratio cam_fov cam_depth_img_center
     detect_params = detect_object(D, backgrnd);
     
     % calculate obstacle geometry
@@ -107,24 +137,16 @@ function turn_state=avoid_obstacle(serPort, CameraHandle)
     depth = double(D(median(1),median(2))) * cam_depth_range_ratio;
     near_left = detect_params.extrema.Extrema(8,1);
     near_right = detect_params.extrema.Extrema(4,1);
-    angle_left = (cam_depth_img_center - near_left) / cam_depth_img_center * cam_fov / 2.00
-    angle_right = (near_right - cam_depth_img_center) / cam_depth_img_center * cam_fov / 2.00
-    
-    if near_left > cam_depth_img_width - near_right
+    angle_left = (cam_depth_img_center - near_left) / cam_depth_img_center * cam_fov / 2.00;
+    angle_right = (near_right - cam_depth_img_center) / cam_depth_img_center * cam_fov / 2.00;
+    display(cam_depth_img_center - near_left)
+    display(near_right - cam_depth_img_center)
+    input('Press any key to continue');
+    if cam_depth_img_center - near_left < near_right - cam_depth_img_center
         turn_state = 'left';
     else
         turn_state = 'right';
     end
-    while identify_obstacle(D)
-        if strcmp(turn_state,'left')
-            turn_left(serPort)
-        else
-            turn_right(serPort)
-        end
-        [D, I] = get_camera_image(CameraHandle);
-    end
-    move_forward_by_distance(serPort, .1); 
-    pause(1);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -139,12 +161,27 @@ function turn_right(serPort)
     SetFwdVelRadiusRoomba(serPort, 0.05, -0.01);
 end
 
-function move_forward_by_distance(serPort, distance)
+function move_forward_by_distance(serPort, distance, CameraHandle)
     DistanceSensorRoomba(serPort);
     travelled = 0;
     while travelled < distance
+        get_camera_image(CameraHandle);
         SetFwdVelRadiusRoomba(serPort,0.05, inf);
         travelled = travelled - DistanceSensorRoomba(serPort);
         pause(0.1);
+    end
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%Math Utility Functions%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function degree = normalize_radians(rad)
+    degree = rad / pi * 180;
+    while degree <= -180
+        degree = degree + 180;
+    end
+    while degree > 180
+        degree = degree - 180;
     end
 end
