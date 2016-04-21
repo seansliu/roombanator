@@ -48,7 +48,6 @@ for r = 1:row
 end
 
 if count < minimum_blob_size
-    display('too small');
     blob = zeros(row, column);
 end
 imshow(blob)

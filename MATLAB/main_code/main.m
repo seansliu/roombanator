@@ -1,4 +1,4 @@
-function main(serPort)
+function main(serPort, mode)
     %init constants
     global cam_fov robot_radius cam_depth_range_ratio cam_depth_img_width cam_depth_img_center backgrnd
     cam_fov = 74;                            %degrees
@@ -12,50 +12,52 @@ function main(serPort)
     if(CameraHandle ==0)
         error('no valid camera handle');
     end
-    
+
     % Initialize Color Tracking
     pxcAcquireFrame(CameraHandle);
     I = pxcColorImage(CameraHandle); I=permute(I([3,2,1],:,:),[3 2 1]);
     pxcReleaseFrame(CameraHandle);
     figure(1);
     imshow(I);
-    [col, row] = getpts(1)
+    [col, row] = getpts(1);
     img_double = im2double(I);
     rgb = impixel(img_double, col, row); 
     
     %Init Background Detection
-    h = figure;
     [backgrnd, I] = get_camera_image(CameraHandle);
+    %h = figure;
     h2=imshow(backgrnd,[200 750]); colormap('jet');
     set(h2,'CDATA',backgrnd);
-    drawnow; 
+    %drawnow; 
     input('Press any key and enter to start navigation');
-    figure;
-
-    center_on_destination(serPort, CameraHandle, rgb);
-    while(1)
-        [D, I] = get_camera_image(CameraHandle);
-        if identify_obstacle(D)
-            display('obstacle detected.')
-            turn_state = avoid_obstacle(serPort,CameraHandle);
-            center_on_destination(serPort, CameraHandle, rgb);
-        else
-            SetFwdVelRadiusRoomba(serPort, 0.05, inf);
+    %figure;
+    
+    if mode == 0  %camera only mode
+        while (1)
+            [D, I] = get_camera_image(CameraHandle);
+            if identify_obstacle(D)
+                display('obstacle detected');
+            end
+            pause(1);
         end
-        pause(0.1);
+    elseif mode == 1 % robot navigation mode
+        center_on_destination(serPort, CameraHandle, rgb);
+        while(1)
+            [D, I] = get_camera_image(CameraHandle);
+            if identify_obstacle(D)
+                turn_state = avoid_obstacle(serPort,CameraHandle);
+                center_on_destination(serPort, CameraHandle, rgb);
+            else
+                SetFwdVelRadiusRoomba(serPort, 0.05, inf);
+            end
+            pause(0.1);
+        end
     end
 end
 
-
-function [D, I] = get_camera_image(CameraHandle)
-        pxcAcquireFrame(CameraHandle);
-        D = pxcDepthImage(CameraHandle); D=permute(D,[2 1]);
-        I = pxcColorImage(CameraHandle); I=permute(I([3,2,1],:,:),[3 2 1]);
-        subplot(1,2,1),h1=imshow(I); 
-        subplot(1,2,2),h2=imshow(D,[200 750]); colormap('jet');
-        pxcReleaseFrame(CameraHandle);
-end
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%Destination Tracking Code%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function center_on_destination(serPort, CameraHandle, rgb)
     centered = 0;
@@ -77,6 +79,9 @@ function center_on_destination(serPort, CameraHandle, rgb)
     end
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%Obstacle Detection/Avoidance Code%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function obstacle_identified =identify_obstacle(Camera_Depth_Info)
     global cam_depth_img_width robot_radius backgrnd
@@ -91,7 +96,6 @@ function obstacle_identified =identify_obstacle(Camera_Depth_Info)
         end
     end
 end
-
 
 function turn_state=avoid_obstacle(serPort, CameraHandle)
     global cam_depth_img_width backgrnd cam_depth_range_ratio cam_fov
@@ -122,6 +126,10 @@ function turn_state=avoid_obstacle(serPort, CameraHandle)
     move_forward_by_distance(serPort, .1); 
     pause(1);
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%Roomba Movement Code%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function turn_left(serPort)
     SetFwdVelRadiusRoomba(serPort, 0.05, 0.01);

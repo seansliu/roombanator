@@ -3,16 +3,10 @@ function [box, centroid_x, centroid_y, area] = color_vision(target, I)
     mask = pixel_mask(I, target);
     regions = regionprops(mask, 'Area', 'BoundingBox', 'Centroid');
     [box, centroid_x, centroid_y, area] = largest_region(regions, 300);
-    if (~box)
-        display('Target NOT found.');
-    else 
-        display('Target found.');
-    end
 end
 
 %% helper function for creating a binary mask, given an image and color
 function mask = pixel_mask(image, rgb)
-    
     % color threshold
     t = .1;
     
@@ -24,12 +18,10 @@ function mask = pixel_mask(image, rgb)
     mask = ((h >= hsv(1)-t) & (h <= hsv(1)+t) & ...
            (s >= hsv(2)-3*t) & (s <= hsv(1)+3*t) & ...
            (v >= 0.1) & (v <= 0.9));
-
 end
 
 %% helper function for finding the largest region
 function [boundingbox, centroid_x, centroid_y, area] = largest_region(regions, min_size)
-    
     % initialize values
     largest_area = 0;
     largest_index = 0;
@@ -55,5 +47,4 @@ function [boundingbox, centroid_x, centroid_y, area] = largest_region(regions, m
         centroid_y = 0;
         area = 0;
     end
-    
 end
