@@ -1,6 +1,6 @@
 function main(serPort, mode)
     %init constants
-    global cam_fov robot_radius cam_depth_range_ratio cam_depth_img_width cam_depth_img_center backgrnd
+    global cam_fov robot_radius cam_depth_range_ratio cam_depth_img_width cam_depth_img_center backgrnd floor_level
     cam_fov = 74;                            %degrees
     robot_radius = 0.17;                     %meters
     cam_depth_range_ratio = 0.80 / 32000.00; %meters / units
@@ -25,6 +25,7 @@ function main(serPort, mode)
     
     %Init Background Detection
     [backgrnd, I] = get_camera_image(CameraHandle);
+    floor_level = detect_background(backgrnd);
     %h = figure;
     h2=imshow(backgrnd,[200 750]); colormap('jet');
     set(h2,'CDATA',backgrnd);
@@ -115,8 +116,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function obstacle_identified =identify_obstacle(Camera_Depth_Info)
-    global cam_depth_img_width robot_radius backgrnd
-    detect_params = detect_object(Camera_Depth_Info, backgrnd);
+    global cam_depth_img_width robot_radius backgrnd floor_level
+    detect_params = detect_object(Camera_Depth_Info, backgrnd, floor_level);
     obstacle_identified = 0;
     if (~isempty(fieldnames(detect_params)))
         threshold = cam_depth_img_width * robot_radius * 2 / 1.05;
@@ -129,8 +130,8 @@ function obstacle_identified =identify_obstacle(Camera_Depth_Info)
 end
 
 function turn_state=avoid_obstacle(serPort, D)
-    global backgrnd cam_depth_range_ratio cam_fov cam_depth_img_center
-    detect_params = detect_object(D, backgrnd);
+    global backgrnd cam_depth_range_ratio cam_fov cam_depth_img_center floor_level
+    detect_params = detect_object(D, backgrnd, floor_level);
     
     % calculate obstacle geometry
     median = detect_params.median;

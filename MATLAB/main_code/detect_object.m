@@ -1,12 +1,13 @@
-function [params] = detect_object(arr, background_arr)
+function [params] = detect_object(arr, background_arr, floor_level)
 params = struct([]);
-epsilon = 30;
+epsilon = 50;
 minimum_blob_size = 2000; %in pixels
 tolerance = 1000;
 [row, column] = size(arr);
 object_arr = zeros(row, column);
 sum_x = 0;
 sum_y = 0;
+
 
 %create binary array of all pixels closer than tolerance
 for r = 1:row
@@ -47,14 +48,20 @@ for r = 1:row
     end
 end
 
+for r = floor_level:row
+    for c = 1:column
+        blob(r,c) = 0;
+    end
+end
+
 if count < minimum_blob_size
-    blob = zeros(row, column);
+    blob = zeros(floor_level, column);
 end
 imshow(blob)
 
 %find median of largest blob
 count = sum(blob(:));
-for r = 1:row
+for r = 1:floor_level
     for c = 1:column
         if blob(r,c) == 1
             sum_x = sum_x + r;
