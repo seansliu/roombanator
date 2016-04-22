@@ -1,6 +1,6 @@
 function main(serPort, mode)
     %init constants
-    global cam_fov robot_radius cam_depth_range_ratio cam_depth_img_width cam_depth_img_center backgrnd floor_level
+    global floor_level cam_fov robot_radius cam_depth_range_ratio cam_depth_img_width cam_depth_img_center backgrnd
     cam_fov = 74;                            %degrees
     robot_radius = 0.17;                     %meters
     cam_depth_range_ratio = 0.80 / 32000.00; %meters / units
@@ -24,7 +24,7 @@ function main(serPort, mode)
     rgb = impixel(img_double, col, row); 
     
     %Init Background Detection
-    [backgrnd, I] = get_camera_image(CameraHandle);
+    [backgrnd, ~] = get_camera_image(CameraHandle);
     floor_level = detect_background(backgrnd);
     %h = figure;
     h2=imshow(backgrnd,[200 750]); colormap('jet');
@@ -39,6 +39,8 @@ function main(serPort, mode)
             if identify_obstacle(D)
                 display('obstacle detected');
             end
+            [~, centroid_x, ~, ~] = color_vision(rgb, I);
+            display (centroid_x);
             pause(1);
         end
     elseif mode == 1 % robot navigation mode
@@ -47,13 +49,16 @@ function main(serPort, mode)
             [D, I] = get_camera_image(CameraHandle);
             pause(0.05);
             if identify_obstacle(D)
+                if check_destination_arrival(D, I)
+                    break;
+                end
                 SetFwdVelRadiusRoomba(serPort, 0, 0);
                 AngleSensorRoomba(serPort);
                 display 'Obstacle Identified'
                 turn_state = avoid_obstacle(serPort, D);
                 theta = 0;
                 while identify_obstacle(D)
-                    [D, I] = get_camera_image(CameraHandle);
+                    [D, ~] = get_camera_image(CameraHandle);
                     if strcmp(turn_state,'left')
                         turn_left(serPort)
                     else
@@ -62,7 +67,7 @@ function main(serPort, mode)
                     theta = theta + AngleSensorRoomba(serPort);
                     pause(0.1);
                 end
-                degree = normalize_radians(theta)
+                degree = normalize_radians(theta);
                 move_forward_by_distance(serPort, .05, CameraHandle); 
                 SetFwdVelRadiusRoomba(serPort, 0, 0);
                 pause(1);
@@ -80,12 +85,34 @@ end
 %%%Destination Tracking Code%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+function arrived=check_destination_arrival(D, I, rgb)
+    global backgrnd
+    [~, centroid_x, centroid_y, ~] = color_vision(rgb, I);
+    detect_params = detect_object(D, backgrnd);
+    
+    near_top = max([detect_params.extrema.Extrema(1,2) detect_params.extrema.Extrema(2,2)]);
+    near_bottom = min([detect_params.extrema.Extrema(6,2) detect_params.extrema.Extrema(5,2)]);
+    near_left = min([detect_params.extrema.Extrema(8,1) detect_params.extrema.Extrema(7,1)]);
+    near_right = max([detect_params.extrema.Extrema(4,1) detect_params.extrema.Extrema(3,1));
+    
+    % color image is double size of depth image, convert coordinates
+    centroid_x = double(centroid_x) / 2.00;
+    centroid_y = double(centroid_y) / 2.00;
+    
+    arrived=0;
+    if centroid_x > near_left && centroid_x < near_right
+        if centroid_y > near_bottom && centroid_y < near_top
+            arrived=1;
+        end
+    end
+end
+
 function center_on_destination(serPort, CameraHandle, rgb, degree)
     centered = 0;
     turning = 0;
     while (~centered)
-        [D, I] = get_camera_image(CameraHandle);
-        [box, centroid_x, centroid_y, area] = color_vision(rgb, I);
+        [~, I] = get_camera_image(CameraHandle);
+        [~, centroid_x, ~, ~] = color_vision(rgb, I);
         pause(0.05);
         if centroid_x == 0 
             if turning == 1
