@@ -1,7 +1,7 @@
 function [params] = detect_object(arr, background_arr, floor_level)
 params = struct([]);
 epsilon = 50;
-minimum_blob_size = 5000; %in pixels
+minimum_blob_size = 100; %in pixels
 tolerance = 1000;
 [row, column] = size(arr);
 object_arr = zeros(row, column);
