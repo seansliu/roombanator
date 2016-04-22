@@ -1,7 +1,7 @@
 function [params] = detect_object(arr, background_arr, floor_level)
 params = struct([]);
 epsilon = 50;
-minimum_blob_size = 2000; %in pixels
+minimum_blob_size = 5000; %in pixels
 tolerance = 1000;
 [row, column] = size(arr);
 object_arr = zeros(row, column);
@@ -20,14 +20,24 @@ for r = 1:row
     end
 end
 
+
 %find largest blob
 blob = zeros(row, column);
+for r = floor_level:row
+    for c = 1:column
+        object_arr(r,c) = 0;
+    end
+end
+
 CC = bwconncomp(object_arr);
 if CC.NumObjects > 0
     numPixels = cellfun(@numel, CC.PixelIdxList);
     [biggest, idx] = max(numPixels);
     blob(CC.PixelIdxList{idx}) = 1;
 end
+
+
+
 
 %apply mean filter using a 10 by 10 window
 h = fspecial('average', [5,5]);
@@ -48,20 +58,15 @@ for r = 1:row
     end
 end
 
-for r = floor_level:row
-    for c = 1:column
-        blob(r,c) = 0;
-    end
-end
 
 if count < minimum_blob_size
-    blob = zeros(floor_level, column);
+    blob = zeros(row, column);
 end
 imshow(blob)
 
 %find median of largest blob
 count = sum(blob(:));
-for r = 1:floor_level
+for r = 1:row
     for c = 1:column
         if blob(r,c) == 1
             sum_x = sum_x + r;
