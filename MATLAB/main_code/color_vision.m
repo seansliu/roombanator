@@ -18,6 +18,7 @@ function mask = pixel_mask(image, rgb)
     mask = ((h >= hsv(1)-t) & (h <= hsv(1)+t) & ...
            (s >= hsv(2)-3*t) & (s <= hsv(1)+3*t) & ...
            (v >= 0.1) & (v <= 0.9));
+   subplot(2,2,4),h4=imshow(mask);colormap('winter');
 end
 
 %% helper function for finding the largest region

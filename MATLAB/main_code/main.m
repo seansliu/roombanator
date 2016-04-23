@@ -26,14 +26,14 @@ function main(serPort, mode)
     %Init Background Detection
     [backgrnd, ~] = get_camera_image(CameraHandle);
     floor_level = detect_background(backgrnd);
-    floor_level = 170;
     %h = figure;
     h2=imshow(backgrnd,[200 750]); colormap('jet');
     set(h2,'CDATA',backgrnd);
+    drawnow; 
     input('Press any key and enter to start navigation');
+    %figure;
     
     if mode == 0  %camera only mode
-        figure;
         while (1)
             [D, I] = get_camera_image(CameraHandle);
             if identify_obstacle(D)
@@ -45,9 +45,7 @@ function main(serPort, mode)
         end
     elseif mode == 1 % robot navigation mode
         center_on_destination(serPort, CameraHandle, rgb, 0);
-        
         while(1)
-            pause(0.05);
             if (detect_bump(serPort, CameraHandle))
                display ('Bumped into something! Backing up.');
                continue; 
@@ -66,7 +64,8 @@ function main(serPort, mode)
                 turn_state = avoid_obstacle(serPort, D);
                 theta = 0;
                 while identify_obstacle(D)
-                    [D, ~] = get_camera_image(CameraHandle);
+                    [D, I] = get_camera_image(CameraHandle);
+                    color_vision(rgb, I);
                     if strcmp(turn_state,'left')
                         turn_left(serPort)
                     else
@@ -81,7 +80,7 @@ function main(serPort, mode)
                 pause(1);
                 center_on_destination(serPort, CameraHandle, rgb, degree);
             else
-                SetFwdVelRadiusRoomba(serPort, 0.05, inf);
+                SetFwdVelRadiusRoomba(serPort, 0.1, inf);
             end
             pause(0.1);
         end
@@ -153,7 +152,7 @@ function detect=detect_bump(serPort, CameraHandle)
     [BumpRight, BumpLeft,BumpFront, ~, ~] = BumpsWheelDropsSensorsRoomba(serPort);
     detect = 0;
     if BumpRight || BumpLeft || BumpFront
-        move_backward_by_distance(serPort, 0.03, CameraHandle);
+        move_backward_by_distance(serPort, 0.02, CameraHandle);
         detect = 1;
     end
     
@@ -162,10 +161,11 @@ end
 
 function obstacle_identified =identify_obstacle(Camera_Depth_Info)
     global cam_depth_img_width robot_radius backgrnd floor_level
-    detect_params = detect_object(Camera_Depth_Info, backgrnd, floor_level);
+    D = Camera_Depth_Info;
+    detect_params = detect_object(D, backgrnd, floor_level);
     obstacle_identified = 0;
     if (~isempty(fieldnames(detect_params)))
-        threshold = cam_depth_img_width * robot_radius * 1.8 / 1.05;
+        threshold = cam_depth_img_width * robot_radius * 1.5 / 1.05;
         near_left = detect_params.extrema.Extrema(8,1);
         near_right = detect_params.extrema.Extrema(4,1);
         if ~((near_right < threshold) || (near_left > cam_depth_img_width - threshold))
@@ -197,11 +197,11 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function turn_left(serPort)
-    SetFwdVelRadiusRoomba(serPort, 0.03, 0.01);
+    SetFwdVelRadiusRoomba(serPort, 0.05, 0.01);
 end
 
 function turn_right(serPort)
-    SetFwdVelRadiusRoomba(serPort, 0.03, -0.01);
+    SetFwdVelRadiusRoomba(serPort, 0.05, -0.01);
 end
 
 function move_forward_by_distance(serPort, distance, CameraHandle)
@@ -212,7 +212,7 @@ function move_forward_by_distance(serPort, distance, CameraHandle)
            break; 
         end
         get_camera_image(CameraHandle);
-        SetFwdVelRadiusRoomba(serPort,0.05, inf);
+        SetFwdVelRadiusRoomba(serPort,0.1, inf);
         travelled = travelled - DistanceSensorRoomba(serPort);
         pause(0.1);
     end
@@ -224,7 +224,7 @@ function move_backward_by_distance(serPort, distance, CameraHandle)
     travelled = 0;
     while travelled < distance
         get_camera_image(CameraHandle);
-        SetFwdVelRadiusRoomba(serPort, -0.05, inf);
+        SetFwdVelRadiusRoomba(serPort, -0.1, inf);
         travelled = travelled + DistanceSensorRoomba(serPort);
         pause(0.1);
     end

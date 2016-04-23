@@ -1,7 +1,7 @@
 function [params] = detect_object(arr, background_arr, floor_level)
 params = struct([]);
 epsilon = 50;
-minimum_blob_size = 500; %in pixels
+minimum_blob_size = 200; %in pixels
 tolerance = 1000;
 [row, column] = size(arr);
 object_arr = zeros(row, column);
@@ -36,6 +36,9 @@ if CC.NumObjects > 0
     blob(CC.PixelIdxList{idx}) = 1;
 end
 
+
+
+
 %apply mean filter using a 10 by 10 window
 h = fspecial('average', [5,5]);
 blob = filter2(h, blob);
@@ -59,10 +62,7 @@ end
 if count < minimum_blob_size
     blob = zeros(row, column);
 end
-figure;
-imshow(blob);
-
-%find median of largest blob
+subplot(2,2,2),h3=imshow(blob);
 count = sum(blob(:));
 for r = 1:row
     for c = 1:column
