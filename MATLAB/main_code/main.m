@@ -26,14 +26,14 @@ function main(serPort, mode)
     %Init Background Detection
     [backgrnd, ~] = get_camera_image(CameraHandle);
     floor_level = detect_background(backgrnd);
+    floor_level = 170;
     %h = figure;
     h2=imshow(backgrnd,[200 750]); colormap('jet');
     set(h2,'CDATA',backgrnd);
-    %drawnow; 
     input('Press any key and enter to start navigation');
-    %figure;
     
     if mode == 0  %camera only mode
+        figure;
         while (1)
             [D, I] = get_camera_image(CameraHandle);
             if identify_obstacle(D)
@@ -45,6 +45,7 @@ function main(serPort, mode)
         end
     elseif mode == 1 % robot navigation mode
         center_on_destination(serPort, CameraHandle, rgb, 0);
+        
         while(1)
             pause(0.05);
             if (detect_bump(serPort, CameraHandle))
@@ -196,11 +197,11 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function turn_left(serPort)
-    SetFwdVelRadiusRoomba(serPort, 0.05, 0.01);
+    SetFwdVelRadiusRoomba(serPort, 0.03, 0.01);
 end
 
 function turn_right(serPort)
-    SetFwdVelRadiusRoomba(serPort, 0.05, -0.01);
+    SetFwdVelRadiusRoomba(serPort, 0.03, -0.01);
 end
 
 function move_forward_by_distance(serPort, distance, CameraHandle)
