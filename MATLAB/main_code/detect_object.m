@@ -23,6 +23,7 @@ end
 
 %find largest blob
 blob = zeros(row, column);
+subplot(2,2,2),h3=imshow(blob);
 for r = floor_level:row
     for c = 1:column
         object_arr(r,c) = 0;

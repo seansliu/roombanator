@@ -1,19 +1,20 @@
-function main(serPort, mode)
-    %init constants
-    global floor_level cam_fov robot_radius cam_depth_range_ratio cam_depth_img_width cam_depth_img_center backgrnd
+function roombanator(serPort, mode)
+%init constants
+    global floor_level cam_fov robot_radius cam_depth_range_ratio ...
+        cam_depth_img_width cam_depth_img_center backgrnd
     cam_fov = 74;                            %degrees
     robot_radius = 0.17;                     %meters
-    cam_depth_range_ratio = 0.80 / 32000.00; %meters / units
+    cam_depth_range_ratio = 0.80 / 1000.00; %meters / units
     cam_depth_img_width = 320;               %pixels
     cam_depth_img_center = cam_depth_img_width / 2;
 
-    % Initialize Camera
+% Initialize Camera
     CameraHandle  = pxcOpenCamera();
     if(CameraHandle ==0)
         error('no valid camera handle');
     end
 
-    % Initialize Color Tracking
+% Initialize Color Tracking
     pxcAcquireFrame(CameraHandle);
     I = pxcColorImage(CameraHandle); I=permute(I([3,2,1],:,:),[3 2 1]);
     pxcReleaseFrame(CameraHandle);
@@ -22,8 +23,8 @@ function main(serPort, mode)
     [col, row] = getpts(1);
     img_double = im2double(I);
     rgb = impixel(img_double, col, row); 
-    
-    %Init Background Detection
+
+%Init Background Detection
     [backgrnd, ~] = get_camera_image(CameraHandle);
     floor_level = detect_background(backgrnd);
     floor_level = floor_level + 50;
@@ -32,58 +33,90 @@ function main(serPort, mode)
     set(h2,'CDATA',backgrnd);
     drawnow; 
     input('Press any key and enter to start navigation');
-    %figure;
-    
-    if mode == 0  %camera only mode
-        while (1)
-            [D, I] = get_camera_image(CameraHandle);
-            if identify_obstacle(D)
-                display('obstacle detected');
-            end
-            [~, centroid_x, ~, ~] = color_vision(rgb, I);
-            display (centroid_x);
-            pause(1);
+
+if mode == 0  %camera only mode
+    while (1)
+        [D, I] = get_camera_image(CameraHandle);
+        if identify_obstacle(D)
+            display('obstacle detected');
         end
-    elseif mode == 1 % robot navigation mode
-        center_on_destination(serPort, CameraHandle, rgb, 0);
-        while(1)
-            if (detect_bump(serPort, CameraHandle))
-               display ('Bumped into something! Backing up.');
-               continue; 
-            end
-            [D, I] = get_camera_image(CameraHandle);
-            if identify_obstacle(D)
-                SetFwdVelRadiusRoomba(serPort, 0, 0);
-                if check_destination_arrival(D, I, rgb)
-                    move_forward_by_distance(serPort, 0.1, CameraHandle);
-                    display('destination reached');
-                    break;
-                end
-                SetFwdVelRadiusRoomba(serPort, 0, 0);
-                AngleSensorRoomba(serPort);
-                display 'Obstacle Identified'
-                turn_state = avoid_obstacle(serPort, D);
-                theta = 0;
-                while identify_obstacle(D)
-                    [D, I] = get_camera_image(CameraHandle);
-                    color_vision(rgb, I);
-                    if strcmp(turn_state,'left')
-                        turn_left(serPort)
-                    else
-                        turn_right(serPort)
-                    end
-                    theta = theta + AngleSensorRoomba(serPort);
-                end
-                degree = normalize_radians(theta);
-                move_forward_by_distance(serPort, 0.1, CameraHandle); 
-                SetFwdVelRadiusRoomba(serPort, 0, 0);
-                pause(1);
-                center_on_destination(serPort, CameraHandle, rgb, degree);
-            else
-                SetFwdVelRadiusRoomba(serPort, 0.1, inf);
-            end
-        end
+        [~, centroid_x, ~, ~] = color_vision(rgb, I);
+        display (centroid_x);
+        pause(1);
     end
+elseif mode == 1 % robot navigation mode
+    velocity = 0.1;
+    state = 0;
+    degree = 0;
+    while(1)
+        %update images
+        [D, I] = get_camera_image(CameraHandle);
+        identify_obstacle(D);
+        color_vision(rgb, I);
+
+        if (detect_bump(serPort))
+           display ('Bumped into something! Backing up.');
+           move_backward_by_distance(serPort, velocity, 0.02);
+           continue; 
+        end
+
+        if state == 0 % destination acquisition
+            center_on_destination(serPort, CameraHandle, rgb, degree);  
+            state = 1;
+            display('Destination acquired');
+        elseif state == 1 % advance towards destination
+            SetFwdVelRadiusRoomba(serPort, velocity, inf);
+            if identify_obstacle(D)
+                SetFwdVelRadiusRoomba(serPort, 0, 0);       %stop
+                if check_destination_arrival(D, I, rgb)     %check if at destination
+                    curr_distance = 0;
+                    distance = 0.05;
+                    curr_distance = move_forward_by_distance(serPort, velocity, curr_distance);
+                    if curr_distance > distance
+                        display('destination reached');
+                        break;
+                    end
+                end
+                AngleSensorRoomba(serPort);                %flush angle sensor
+                turn_state = avoid_obstacle(D);            %determine turn direction
+                obs_distance = get_obstacle_distance(D)
+                theta = 0;
+                state = 2;                                  %enter obstacle turn mode
+                display 'Obstacle Identified'
+            end
+            if lost_destination(rgb, I)
+               state = 0; 
+               display 'Destination lost. Reacquiring'
+            end
+        elseif state == 2 % obstacle turn mode
+            if ~(identify_obstacle(D))
+               degree = normalize_radians(theta);          %convert radians to degrees
+               curr_distance = 0;
+               state = 3;                                  %obstacle move mode
+               SetFwdVelRadiusRoomba(serPort, 0, 0);
+               display 'Turn complete. Moving forward to avoid obstacle';
+               continue;
+            end
+
+            if strcmp(turn_state,'left')
+                turn_left(serPort)
+            else
+                turn_right(serPort)
+            end
+            theta = theta + AngleSensorRoomba(serPort);
+        elseif state == 3 % obstacle move mode
+            curr_distance = move_forward_by_distance(serPort, velocity, curr_distance);
+            if curr_distance > obs_distance 
+                SetFwdVelRadiusRoomba(serPort, 0, 0);
+                pause(0.1);
+                state = 0;
+                display('Reacquiring destination');
+            end
+        end
+        pause(0.05);
+    end
+end
+
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -109,6 +142,14 @@ function arrived=check_destination_arrival(D, I, rgb)
         if centroid_y < near_bottom && centroid_y > near_top
             arrived=1;
         end
+    end
+end
+
+function lost=lost_destination(rgb, I)
+    [~, centroid_x, ~, ~] = color_vision(rgb, I);
+    lost = 0;
+    if centroid_x < 250 || centroid_x > 390
+        lost = 1;
     end
 end
 
@@ -147,14 +188,12 @@ end
 %%%Obstacle Detection/Avoidance Code%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function detect=detect_bump(serPort, CameraHandle)
+function detect=detect_bump(serPort)
     [BumpRight, BumpLeft,BumpFront, ~, ~] = BumpsWheelDropsSensorsRoomba(serPort);
     detect = 0;
     if BumpRight || BumpLeft || BumpFront
-        move_backward_by_distance(serPort, 0.02, CameraHandle);
         detect = 1;
     end
-    
 end
 
 
@@ -173,7 +212,14 @@ function obstacle_identified =identify_obstacle(Camera_Depth_Info)
     end
 end
 
-function turn_state=avoid_obstacle(serPort, D)
+function dist = get_obstacle_distance(D)
+    global backgrnd floor_level cam_depth_range_ratio
+    detect_params = detect_object(D, backgrnd, floor_level);
+    median = detect_params.median;
+    dist = double(D(median(1),median(2))) * cam_depth_range_ratio ;
+end
+
+function turn_state=avoid_obstacle(D)
     global backgrnd cam_depth_range_ratio cam_fov cam_depth_img_center floor_level
     detect_params = detect_object(D, backgrnd, floor_level);
     
@@ -203,27 +249,16 @@ function turn_right(serPort)
     SetFwdVelRadiusRoomba(serPort, 0.05, -0.01);
 end
 
-function move_forward_by_distance(serPort, distance, CameraHandle)
-    DistanceSensorRoomba(serPort);
-    travelled = 0;
-    while travelled < distance
-        if detect_bump(serPort, CameraHandle)
-           break; 
-        end
-        get_camera_image(CameraHandle);
-        SetFwdVelRadiusRoomba(serPort,0.1, inf);
-        travelled = travelled - DistanceSensorRoomba(serPort);
-        pause(0.1);
-    end
-    SetFwdVelRadiusRoomba(serPort, 0, 0);
+function curr_distance=move_forward_by_distance(serPort, vel, curr_distance)
+    SetFwdVelRadiusRoomba(serPort, vel, inf);
+    curr_distance = curr_distance - DistanceSensorRoomba(serPort);
 end
 
-function move_backward_by_distance(serPort, distance, CameraHandle)
+function move_backward_by_distance(serPort, vel, distance)
     DistanceSensorRoomba(serPort);
     travelled = 0;
     while travelled < distance
-        get_camera_image(CameraHandle);
-        SetFwdVelRadiusRoomba(serPort, -0.1, inf);
+        SetFwdVelRadiusRoomba(serPort, -vel, inf);
         travelled = travelled + DistanceSensorRoomba(serPort);
         pause(0.1);
     end
