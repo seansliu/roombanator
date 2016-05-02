@@ -238,7 +238,11 @@ function dist = get_obstacle_distance(D)
     global backgrnd floor_level cam_depth_range_ratio
     detect_params = detect_object(D, backgrnd, floor_level);
     centroid = detect_params.centroid;
-    dist = double(D(centroid(1),centroid(2))) * cam_depth_range_ratio;
+    if centroid(1) > 240 || centroid(2) > 240
+       dist = 0.1;
+    else
+        dist = double(D(centroid(1),centroid(2))) * cam_depth_range_ratio;
+    end
     if dist > 0.1
         dist = 0.1;
     end
